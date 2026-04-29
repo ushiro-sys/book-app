@@ -311,11 +311,12 @@ article {
   .detail-cover {
     width: 60%;
     max-width: 220px;
-    margin: 0 auto;
+    margin: 0 auto 16px;
   }
 
   .detail-info {
     width: 100%;
+    align-items: flex-start;
   }
 
   .detail-row,
