@@ -4,7 +4,6 @@ const formScreen = document.getElementById("form-screen");
 
 const backButton = document.getElementById("back-button");
 const addButton = document.querySelector(".add-button");
-const bookCards = document.querySelectorAll(".book-card");
 
 const bookGrid = document.getElementById("book-grid");
 const emptyMessage = document.getElementById("empty-message");
@@ -15,25 +14,27 @@ const detailDate = document.getElementById("detail-date");
 const detailStatus = document.getElementById("detail-status");
 const detailRating = document.getElementById("detail-rating");
 const detailReview = document.getElementById("detail-review");
+const detailCover = document.getElementById("detail-cover");
 
 const deleteButton = document.getElementById("delete-button");
 const editButton = document.getElementById("edit-button");
+
 const coverInput = document.getElementById("cover-input");
-const detailCover = document.getElementById("detail-cover");
+const saveButton = document.getElementById("save-button");
 
-let book = [];
+let books = [];
 let selectedBookId = null;
-let mode = "create"
+let mode = "create";
 
-bookCards.forEach((card) => {
-  card.addEventListener("click", () => {
-    bookshelfScreen.hidden = true;
-    detailScreen.hidden = false;
-    formScreen.hidden = true;
-  });
-});
+// ----------------------
+// 画面遷移
+// ----------------------
 
 addButton.addEventListener("click", () => {
+  mode = "create";
+  selectedBookId = null;
+  document.querySelector(".book-form").reset();
+
   bookshelfScreen.hidden = true;
   detailScreen.hidden = true;
   formScreen.hidden = false;
@@ -45,11 +46,11 @@ backButton.addEventListener("click", () => {
   formScreen.hidden = true;
 });
 
-//データ保存
-let books = [];
-const saveButton = document.getElementById("save-button");
+// ----------------------
+// 保存処理
+// ----------------------
 
-saveButton.addEventListener("click", async(e) => {
+saveButton.addEventListener("click", async (e) => {
   e.preventDefault();
 
   const title = document.querySelector('input[placeholder="本のタイトル"]').value;
@@ -61,12 +62,19 @@ saveButton.addEventListener("click", async(e) => {
 
   let coverImage = "./assets/book_done.png";
 
-if (coverInput.files.length > 0) {
-  coverImage = await toBase64(coverInput.files[0]);
-}
+  // 編集時は元の画像を保持
+  if (mode === "edit") {
+    const targetBook = books.find((b) => b.id === selectedBookId);
+    coverImage = targetBook?.coverImage || coverImage;
+  }
+
+  // 新しく画像選んだ場合は上書き
+  if (coverInput.files.length > 0) {
+    coverImage = await toBase64(coverInput.files[0]);
+  }
 
   const newBook = {
-    id: Date.now(),
+    id: mode === "edit" ? selectedBookId : Date.now(),
     title,
     author,
     date,
@@ -75,47 +83,47 @@ if (coverInput.files.length > 0) {
     review,
     coverImage
   };
-  if(mode === "create"){
-  books.push(newBook);
+
+  if (mode === "create") {
+    books.push(newBook);
+  } else {
+    books = books.map((b) =>
+      b.id === selectedBookId ? newBook : b
+    );
   }
-  if(mode === "edit"){
-    books = books.map((book) => {
-      if (book.id === selectedBookId){
-        return{
-          ...newBook,
-          id: selectedBookId
-        };
-      }
-      return book;
-    });
-  }
+
   localStorage.setItem("books", JSON.stringify(books));
 
-  console.log("保存した本:", newBook);
-  // 追加：入力欄を空にする
   document.querySelector(".book-form").reset();
 
-  // 追加：保存後に本棚へ戻る
   formScreen.hidden = true;
   detailScreen.hidden = true;
   bookshelfScreen.hidden = false;
+
   renderBooks();
+
   mode = "create";
   selectedBookId = null;
 });
 
-//復元
-const savedBooks = localStorage.getItem("books");
+// ----------------------
+// データ復元
+// ----------------------
 
+const savedBooks = localStorage.getItem("books");
 if (savedBooks) {
   books = JSON.parse(savedBooks);
-  console.log("復元された本:", books);
 }
-renderBooks(); 
 
-//本棚に表示
+renderBooks();
+
+// ----------------------
+// 本棚表示
+// ----------------------
+
 function renderBooks() {
   bookGrid.innerHTML = "";
+
   if (books.length === 0) {
     emptyMessage.hidden = false;
     bookGrid.hidden = true;
@@ -130,37 +138,38 @@ function renderBooks() {
     article.className = "book-card";
 
     article.innerHTML = `
-      <img src="${book.coverImage || './assets/book_done.png'}" alt="本の表紙" class="book-cover">
+      <img src="${book.coverImage}" class="book-cover">
       <p class="book-label">${book.title}</p>
     `;
 
     article.addEventListener("click", () => {
-  selectedBookId = book.id;
-  detailCover.src = book.coverImage || "./assets/book_done.png";
-  detailTitle.textContent = book.title;
-  detailAuthor.textContent = book.author;
-  detailDate.textContent = book.date;
-  detailStatus.textContent = book.status;
-  detailRating.textContent = book.rating;
-  detailReview.textContent = book.review;
+      selectedBookId = book.id;
 
-  bookshelfScreen.hidden = true;
-  detailScreen.hidden = false;
-  formScreen.hidden = true;
-});
+      detailCover.src = book.coverImage;
+      detailTitle.textContent = book.title;
+      detailAuthor.textContent = book.author;
+      detailDate.textContent = book.date;
+      detailStatus.textContent = book.status;
+      detailRating.textContent = book.rating;
+      detailReview.textContent = book.review;
+
+      bookshelfScreen.hidden = true;
+      detailScreen.hidden = false;
+      formScreen.hidden = true;
+    });
+
     bookGrid.appendChild(article);
   });
 }
-//削除処理
+
+// ----------------------
+// 削除
+// ----------------------
+
 deleteButton.addEventListener("click", () => {
-  const isConfirm = confirm("この本の記録を削除しますか？");
+  if (!confirm("この本の記録を削除しますか？")) return;
 
-  if (!isConfirm) {
-    return; // キャンセルなら何もしない
-  }
-
-  books = books.filter((book) => book.id !== selectedBookId);
-
+  books = books.filter((b) => b.id !== selectedBookId);
   localStorage.setItem("books", JSON.stringify(books));
 
   selectedBookId = null;
@@ -168,16 +177,16 @@ deleteButton.addEventListener("click", () => {
   renderBooks();
 
   detailScreen.hidden = true;
-  formScreen.hidden = true;
   bookshelfScreen.hidden = false;
 });
-//編集処理
-editButton.addEventListener("click", () => {
-  const targetBook = books.find((book) => book.id === selectedBookId);
 
-  if (!targetBook) {
-    return;
-  }
+// ----------------------
+// 編集
+// ----------------------
+
+editButton.addEventListener("click", () => {
+  const targetBook = books.find((b) => b.id === selectedBookId);
+  if (!targetBook) return;
 
   mode = "edit";
 
@@ -192,13 +201,16 @@ editButton.addEventListener("click", () => {
   detailScreen.hidden = true;
   formScreen.hidden = false;
 });
+
+// ----------------------
+// 画像変換
+// ----------------------
+
 function toBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
-
     reader.readAsDataURL(file);
   });
 }
